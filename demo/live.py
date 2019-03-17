@@ -7,10 +7,8 @@ from imutils.video import FPS, WebcamVideoStream
 import argparse
 
 parser = argparse.ArgumentParser(description='Single Shot MultiBox Detection')
-parser.add_argument('--weights', default='weights/ssd_300_VOC0712.pth',
-                    type=str, help='Trained state_dict file path')
-parser.add_argument('--cuda', default=False, type=bool,
-                    help='Use cuda in live demo')
+parser.add_argument('--weights', default='weights/ssd_300_VOC0712.pth', type=str, help='Trained state_dict file path')
+parser.add_argument('--cuda', default=False, type=bool, help='Use cuda in live demo')
 args = parser.parse_args()
 
 COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
@@ -30,12 +28,8 @@ def cv2_demo(net, transform):
             j = 0
             while detections[0, i, j, 0] >= 0.6:
                 pt = (detections[0, i, j, 1:] * scale).cpu().numpy()
-                cv2.rectangle(frame,
-                              (int(pt[0]), int(pt[1])),
-                              (int(pt[2]), int(pt[3])),
-                              COLORS[i % 3], 2)
-                cv2.putText(frame, labelmap[i - 1], (int(pt[0]), int(pt[1])),
-                            FONT, 2, (255, 255, 255), 2, cv2.LINE_AA)
+                cv2.rectangle(frame, (int(pt[0]), int(pt[1])), (int(pt[2]), int(pt[3])), COLORS[i % 3], 2)
+                cv2.putText(frame, labelmap[i - 1], (int(pt[0]), int(pt[1])), FONT, 2, (255, 255, 255), 2, cv2.LINE_AA)
                 j += 1
         return frame
 

@@ -31,9 +31,9 @@ fi
 # Download the image data.
 cd ./images
 echo "Downloading MSCOCO train images ..."
-curl -LO http://images.cocodataset.org/zips/train2014.zip
+#curl -LO http://images.cocodataset.org/zips/train2014.zip
 echo "Downloading MSCOCO val images ..."
-curl -LO http://images.cocodataset.org/zips/val2014.zip
+#curl -LO http://images.cocodataset.org/zips/val2014.zip
 
 cd ../
 if [ ! -d annotations]
@@ -44,21 +44,21 @@ fi
 # Download the annotation data.
 cd ./annotations
 echo "Downloading MSCOCO train/val annotations ..."
-curl -LO http://images.cocodataset.org/annotations/annotations_trainval2014.zip
+#curl -LO http://images.cocodataset.org/annotations/annotations_trainval2014.zip
 echo "Finished downloading. Now extracting ..."
 
 # Unzip data
 echo "Extracting train images ..."
-unzip ../images/train2014.zip -d ../images
+# unzip ../images/train2014.zip -d ../images
 echo "Extracting val images ..."
-unzip ../images/val2014.zip -d ../images
+# unzip ../images/val2014.zip -d ../images
 echo "Extracting annotations ..."
-unzip ./annotations_trainval2014.zip
+# unzip ./annotations_trainval2014.zip
 
 echo "Removing zip files ..."
-rm ../images/train2014.zip
-rm ../images/val2014.zip
-rm ./annotations_trainval2014.zip
+# rm ../images/train2014.zip
+#rm ../images/val2014.zip
+#rm ./annotations_trainval2014.zip
 
 echo "Creating trainval35k dataset..."
 
