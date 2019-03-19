@@ -9,12 +9,13 @@ import os
 
 class SSD(nn.Module):
     """Single Shot Multibox Architecture
-    The network is composed of a base VGG followed by the
+    The network is composed of a base VGG network followed by the
     added multibox conv layers.  Each multibox layer branches into
         1) conv2d for class conf scores
         2) conv2d for localization predictions
         3) associated priorbox layer to produce default bounding
            boxes specific to the layer's feature map size.
+    See: https://arxiv.org/pdf/1512.02325.pdf for more details.
 
     Args:
         phase: (string) Can be "test" or "train"
@@ -33,6 +34,7 @@ class SSD(nn.Module):
         self.priors = Variable(self.priorbox.forward(), volatile=True)
         self.size = size
 
+        # SSD network
         self.vgg = nn.ModuleList(base)
         # Layer learns to scale the l2 normalized features from conv4_3
         self.L2Norm = L2Norm(512, 20)
@@ -190,7 +192,8 @@ def build_ssd(phase, size=300, num_classes=21):
         print("ERROR: Phase: " + phase + " not recognized")
         return
     if size != 300:
-        print("ERROR: You specified size " + repr(size) + ". However, currently only SSD300 (size=300) is supported!")
+        print("ERROR: You specified size " + repr(size) + ". However, " +
+              "currently only SSD300 (size=300) is supported!")
         return
     base_, extras_, head_ = multibox(vgg(base[str(size)], 3), add_extras(extras[str(size)], 1024), mbox[str(size)], num_classes)
     return SSD(phase, size, base_, extras_, head_, num_classes)

@@ -21,7 +21,7 @@ def str2bool(v):
 
 
 parser = argparse.ArgumentParser(description='Single Shot MultiBox Detector Evaluation')
-parser.add_argument('--trained_model', default='weights/ssd300_COCO_5000.pth', type=str, help='Trained state_dict file path to open')
+parser.add_argument('--trained_model', default='weights/ssd300_VOC_5000.pth', type=str, help='Trained state_dict file path to open')
 parser.add_argument('--save_folder', default='eval/', type=str, help='File path to save results')
 parser.add_argument('--confidence_threshold', default=0.01, type=float, help='Detection confidence threshold')
 parser.add_argument('--top_k', default=5, type=int, help='Further restrict the number of predictions to parse')
@@ -75,7 +75,6 @@ class Timer(object):
 
 
 def parse_rec(filename):
-    """ Parse a PASCAL VOC xml file """
     tree = ET.parse(filename)
     objects = []
     for obj in tree.findall('object'):
@@ -301,8 +300,7 @@ def voc_eval(detpath, annopath, imagesetfile, classname, cachedir, ovthresh=0.5,
         fp = np.cumsum(fp)
         tp = np.cumsum(tp)
         rec = tp / float(npos)
-        # avoid divide by zero in case the first detection matches a difficult
-        # ground truth
+        # avoid divide by zero in case the first detection matches a difficult ground truth
         prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
         ap = voc_ap(rec, prec, use_07_metric)
     else:
@@ -316,8 +314,7 @@ def voc_eval(detpath, annopath, imagesetfile, classname, cachedir, ovthresh=0.5,
 def test_net(save_folder, net, cuda, dataset, transform, top_k, im_size=300, thresh=0.05):
     num_images = len(dataset)
     # all detections are collected into:
-    #    all_boxes[cls][image] = N x 5 array of detections in
-    #    (x1, y1, x2, y2, score)
+    #    all_boxes[cls][image] = N x 5 array of detections in (x1, y1, x2, y2, score)
     all_boxes = [[[] for _ in range(num_images)] for _ in range(len(labelmap)+1)]
 
     # timers
@@ -361,7 +358,7 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k, im_size=300, thr
 
 
 def evaluate_detections(box_list, output_dir, dataset):
-    write_voc_results_file(box_list, dataset)
+    #write_voc_results_file(box_list, dataset)
     do_python_eval(output_dir)
 
 

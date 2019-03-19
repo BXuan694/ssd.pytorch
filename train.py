@@ -13,6 +13,7 @@ import torch.nn.init as init
 import torch.utils.data as data
 import argparse
 
+torch.cuda.empty_cache()
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
