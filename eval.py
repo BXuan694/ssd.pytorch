@@ -1,56 +1,33 @@
-"""Adapted from:
-    @longcw faster_rcnn_pytorch: https://github.com/longcw/faster_rcnn_pytorch
-    @rbgirshick py-faster-rcnn https://github.com/rbgirshick/py-faster-rcnn
-    Licensed under The MIT License [see LICENSE for details]
-"""
-
 from __future__ import print_function
 import torch
-import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 from data import VOC_ROOT, VOCAnnotationTransform, VOCDetection, BaseTransform
 from data import VOC_CLASSES as labelmap
-import torch.utils.data as data
 
 from ssd import build_ssd
 
-import sys
 import os
 import time
 import argparse
 import numpy as np
 import pickle
-import cv2
 
-if sys.version_info[0] == 2:
-    import xml.etree.cElementTree as ET
-else:
-    import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET
 
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
 
 
-parser = argparse.ArgumentParser(
-    description='Single Shot MultiBox Detector Evaluation')
-parser.add_argument('--trained_model',
-                    default='weights/ssd300_mAP_77.43_v2.pth', type=str,
-                    help='Trained state_dict file path to open')
-parser.add_argument('--save_folder', default='eval/', type=str,
-                    help='File path to save results')
-parser.add_argument('--confidence_threshold', default=0.01, type=float,
-                    help='Detection confidence threshold')
-parser.add_argument('--top_k', default=5, type=int,
-                    help='Further restrict the number of predictions to parse')
-parser.add_argument('--cuda', default=True, type=str2bool,
-                    help='Use cuda to train model')
-parser.add_argument('--voc_root', default=VOC_ROOT,
-                    help='Location of VOC root directory')
-parser.add_argument('--cleanup', default=True, type=str2bool,
-                    help='Cleanup and remove results files following eval')
-
+parser = argparse.ArgumentParser(description='Single Shot MultiBox Detector Evaluation')
+parser.add_argument('--trained_model', default='weights/ssd300_COCO_5000.pth', type=str, help='Trained state_dict file path to open')
+parser.add_argument('--save_folder', default='eval/', type=str, help='File path to save results')
+parser.add_argument('--confidence_threshold', default=0.01, type=float, help='Detection confidence threshold')
+parser.add_argument('--top_k', default=5, type=int, help='Further restrict the number of predictions to parse')
+parser.add_argument('--cuda', default=True, type=str2bool, help='Use cuda to train model')
+parser.add_argument('--voc_root', default=VOC_ROOT, help='Location of VOC root directory')
+parser.add_argument('--cleanup', default=True, type=str2bool, help='Cleanup and remove results files following eval')
 args = parser.parse_args()
 
 if not os.path.exists(args.save_folder):
@@ -60,16 +37,14 @@ if torch.cuda.is_available():
     if args.cuda:
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
     if not args.cuda:
-        print("WARNING: It looks like you have a CUDA device, but aren't using \
-              CUDA.  Run with --cuda for optimal eval speed.")
+        print("WARNING: It looks like you have a CUDA device, but aren't using CUDA. Run with --cuda.")
         torch.set_default_tensor_type('torch.FloatTensor')
 else:
     torch.set_default_tensor_type('torch.FloatTensor')
 
 annopath = os.path.join(args.voc_root, 'VOC2007', 'Annotations', '%s.xml')
 imgpath = os.path.join(args.voc_root, 'VOC2007', 'JPEGImages', '%s.jpg')
-imgsetpath = os.path.join(args.voc_root, 'VOC2007', 'ImageSets',
-                          'Main', '{:s}.txt')
+imgsetpath = os.path.join(args.voc_root, 'VOC2007', 'ImageSets', 'Main', '{:s}.txt')
 YEAR = '2007'
 devkit_path = args.voc_root + 'VOC' + YEAR
 dataset_mean = (104, 117, 123)
@@ -77,7 +52,6 @@ set_type = 'test'
 
 
 class Timer(object):
-    """A simple timer."""
     def __init__(self):
         self.total_time = 0.
         self.calls = 0
@@ -86,8 +60,7 @@ class Timer(object):
         self.average_time = 0.
 
     def tic(self):
-        # using time.time instead of time.clock because time time.clock
-        # does not normalize for multithreading
+        # using time.time instead of time.clock because time time.clock does not normalize for multithreading
         self.start_time = time.time()
 
     def toc(self, average=True):
@@ -112,10 +85,7 @@ def parse_rec(filename):
         obj_struct['truncated'] = int(obj.find('truncated').text)
         obj_struct['difficult'] = int(obj.find('difficult').text)
         bbox = obj.find('bndbox')
-        obj_struct['bbox'] = [int(bbox.find('xmin').text) - 1,
-                              int(bbox.find('ymin').text) - 1,
-                              int(bbox.find('xmax').text) - 1,
-                              int(bbox.find('ymax').text) - 1]
+        obj_struct['bbox'] = [int(bbox.find('xmin').text) - 1, int(bbox.find('ymin').text) - 1, int(bbox.find('xmax').text) - 1, int(bbox.find('ymax').text) - 1]
         objects.append(obj_struct)
 
     return objects
@@ -155,9 +125,7 @@ def write_voc_results_file(all_boxes, dataset):
                 # the VOCdevkit expects 1-based indices
                 for k in range(dets.shape[0]):
                     f.write('{:s} {:.3f} {:.1f} {:.1f} {:.1f} {:.1f}\n'.
-                            format(index[1], dets[k, -1],
-                                   dets[k, 0] + 1, dets[k, 1] + 1,
-                                   dets[k, 2] + 1, dets[k, 3] + 1))
+                        format(index[1], dets[k, -1], dets[k, 0] + 1, dets[k, 1] + 1, dets[k, 2] + 1, dets[k, 3] + 1))
 
 
 def do_python_eval(output_dir='output', use_07=True):
@@ -194,8 +162,7 @@ def do_python_eval(output_dir='output', use_07=True):
 def voc_ap(rec, prec, use_07_metric=True):
     """ ap = voc_ap(rec, prec, [use_07_metric])
     Compute VOC AP given precision and recall.
-    If use_07_metric is true, uses the
-    VOC 07 11 point method (default:True).
+    If use_07_metric is true, uses the VOC 07 11 point method (default:True).
     """
     if use_07_metric:
         # 11 point metric
@@ -225,31 +192,20 @@ def voc_ap(rec, prec, use_07_metric=True):
     return ap
 
 
-def voc_eval(detpath,
-             annopath,
-             imagesetfile,
-             classname,
-             cachedir,
-             ovthresh=0.5,
-             use_07_metric=True):
-    """rec, prec, ap = voc_eval(detpath,
-                           annopath,
-                           imagesetfile,
-                           classname,
-                           [ovthresh],
-                           [use_07_metric])
-Top level function that does the PASCAL VOC evaluation.
-detpath: Path to detections
-   detpath.format(classname) should produce the detection results file.
-annopath: Path to annotations
-   annopath.format(imagename) should be the xml annotations file.
-imagesetfile: Text file containing the list of images, one image per line.
-classname: Category name (duh)
-cachedir: Directory for caching the annotations
-[ovthresh]: Overlap threshold (default = 0.5)
-[use_07_metric]: Whether to use VOC07's 11 point AP computation
-   (default True)
-"""
+def voc_eval(detpath, annopath, imagesetfile, classname, cachedir, ovthresh=0.5, use_07_metric=True):
+    """rec, prec, ap = voc_eval(detpath, annopath, imagesetfile, classname, [ovthresh], [use_07_metric])
+        Top level function that does the PASCAL VOC evaluation.
+        detpath: Path to detections
+            detpath.format(classname) should produce the detection results file.
+        annopath: Path to annotations
+            annopath.format(imagename) should be the xml annotations file.
+        imagesetfile: Text file containing the list of images, one image per line.
+        classname: Category name (duh)
+        cachedir: Directory for caching the annotations
+        [ovthresh]: Overlap threshold (default = 0.5)
+        [use_07_metric]: Whether to use VOC07's 11 point AP computation
+            (default True)
+    """
 # assumes detections are in detpath.format(classname)
 # assumes annotations are in annopath.format(imagename)
 # assumes imagesetfile is a text file with each line an image name
@@ -288,9 +244,7 @@ cachedir: Directory for caching the annotations
         difficult = np.array([x['difficult'] for x in R]).astype(np.bool)
         det = [False] * len(R)
         npos = npos + sum(~difficult)
-        class_recs[imagename] = {'bbox': bbox,
-                                 'difficult': difficult,
-                                 'det': det}
+        class_recs[imagename] = {'bbox': bbox, 'difficult': difficult, 'det': det}
 
     # read dets
     detfile = detpath.format(classname)
@@ -328,9 +282,7 @@ cachedir: Directory for caching the annotations
                 iw = np.maximum(ixmax - ixmin, 0.)
                 ih = np.maximum(iymax - iymin, 0.)
                 inters = iw * ih
-                uni = ((bb[2] - bb[0]) * (bb[3] - bb[1]) +
-                       (BBGT[:, 2] - BBGT[:, 0]) *
-                       (BBGT[:, 3] - BBGT[:, 1]) - inters)
+                uni = ((bb[2] - bb[0]) * (bb[3] - bb[1]) + (BBGT[:, 2] - BBGT[:, 0]) * (BBGT[:, 3] - BBGT[:, 1]) - inters)
                 overlaps = inters / uni
                 ovmax = np.max(overlaps)
                 jmax = np.argmax(overlaps)
@@ -361,14 +313,12 @@ cachedir: Directory for caching the annotations
     return rec, prec, ap
 
 
-def test_net(save_folder, net, cuda, dataset, transform, top_k,
-             im_size=300, thresh=0.05):
+def test_net(save_folder, net, cuda, dataset, transform, top_k, im_size=300, thresh=0.05):
     num_images = len(dataset)
     # all detections are collected into:
     #    all_boxes[cls][image] = N x 5 array of detections in
     #    (x1, y1, x2, y2, score)
-    all_boxes = [[[] for _ in range(num_images)]
-                 for _ in range(len(labelmap)+1)]
+    all_boxes = [[[] for _ in range(num_images)] for _ in range(len(labelmap)+1)]
 
     # timers
     _t = {'im_detect': Timer(), 'misc': Timer()}
@@ -398,13 +348,10 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
             boxes[:, 1] *= h
             boxes[:, 3] *= h
             scores = dets[:, 0].cpu().numpy()
-            cls_dets = np.hstack((boxes.cpu().numpy(),
-                                  scores[:, np.newaxis])).astype(np.float32,
-                                                                 copy=False)
+            cls_dets = np.hstack((boxes.cpu().numpy(), scores[:, np.newaxis])).astype(np.float32, copy=False)
             all_boxes[j][i] = cls_dets
 
-        print('im_detect: {:d}/{:d} {:.3f}s'.format(i + 1,
-                                                    num_images, detect_time))
+        print('im_detect: {:d}/{:d} {:.3f}s'.format(i + 1, num_images, detect_time))
 
     with open(det_file, 'wb') as f:
         pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
@@ -426,13 +373,9 @@ if __name__ == '__main__':
     net.eval()
     print('Finished loading model!')
     # load data
-    dataset = VOCDetection(args.voc_root, [('2007', set_type)],
-                           BaseTransform(300, dataset_mean),
-                           VOCAnnotationTransform())
+    dataset = VOCDetection(args.voc_root, [('2007', set_type)], BaseTransform(300, dataset_mean), VOCAnnotationTransform())
     if args.cuda:
         net = net.cuda()
         cudnn.benchmark = True
     # evaluation
-    test_net(args.save_folder, net, args.cuda, dataset,
-             BaseTransform(net.size, dataset_mean), args.top_k, 300,
-             thresh=args.confidence_threshold)
+    test_net(args.save_folder, net, args.cuda, dataset, BaseTransform(net.size, dataset_mean), args.top_k, 300, thresh=args.confidence_threshold)

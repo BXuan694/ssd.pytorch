@@ -6,13 +6,6 @@ import types
 from numpy import random
 
 
-def intersect(box_a, box_b):
-    max_xy = np.minimum(box_a[:, 2:], box_b[2:])
-    min_xy = np.maximum(box_a[:, :2], box_b[:2])
-    inter = np.clip((max_xy - min_xy), a_min=0, a_max=np.inf)
-    return inter[:, 0] * inter[:, 1]
-
-
 def jaccard_numpy(box_a, box_b):
     """Compute the jaccard overlap of two sets of boxes.  The jaccard overlap
     is simply the intersection over union of two boxes.
@@ -24,7 +17,11 @@ def jaccard_numpy(box_a, box_b):
     Return:
         jaccard overlap: Shape: [box_a.shape[0], box_a.shape[1]]
     """
-    inter = intersect(box_a, box_b)
+    max_xy = np.minimum(box_a[:, 2:], box_b[2:])
+    min_xy = np.maximum(box_a[:, :2], box_b[:2])
+    inter = np.clip((max_xy - min_xy), a_min=0, a_max=np.inf)
+    inter = inter[:, 0] * inter[:, 1]
+
     area_a = ((box_a[:, 2]-box_a[:, 0]) * (box_a[:, 3]-box_a[:, 1]))  # [A,B]
     area_b = ((box_b[2]-box_b[0]) * (box_b[3]-box_b[1]))  # [A,B]
     union = area_a + area_b - inter
@@ -293,13 +290,11 @@ class RandomSampleCrop(object):
                 current_labels = labels[mask]
 
                 # should we use the box left and top corner or the crop's
-                current_boxes[:, :2] = np.maximum(current_boxes[:, :2],
-                                                  rect[:2])
+                current_boxes[:, :2] = np.maximum(current_boxes[:, :2], rect[:2])
                 # adjust to crop (by substracting crop's left,top)
                 current_boxes[:, :2] -= rect[:2]
 
-                current_boxes[:, 2:] = np.minimum(current_boxes[:, 2:],
-                                                  rect[2:])
+                current_boxes[:, 2:] = np.minimum(current_boxes[:, 2:], rect[2:])
                 # adjust to crop (by substracting crop's left,top)
                 current_boxes[:, 2:] -= rect[:2]
 
@@ -319,12 +314,9 @@ class Expand(object):
         left = random.uniform(0, width*ratio - width)
         top = random.uniform(0, height*ratio - height)
 
-        expand_image = np.zeros(
-            (int(height*ratio), int(width*ratio), depth),
-            dtype=image.dtype)
+        expand_image = np.zeros((int(height*ratio), int(width*ratio), depth), dtype=image.dtype)
         expand_image[:, :, :] = self.mean
-        expand_image[int(top):int(top + height),
-                     int(left):int(left + width)] = image
+        expand_image[int(top):int(top + height), int(left):int(left + width)] = image
         image = expand_image
 
         boxes = boxes.copy()

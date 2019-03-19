@@ -7,15 +7,11 @@ Updated by: Ellis Brown, Max deGroot
 """
 from .config import HOME
 import os.path as osp
-import sys
 import torch
 import torch.utils.data as data
 import cv2
 import numpy as np
-if sys.version_info[0] == 2:
-    import xml.etree.cElementTree as ET
-else:
-    import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET
 
 VOC_CLASSES = (  # always index 0
     'aeroplane', 'bicycle', 'bird', 'boat',
@@ -42,15 +38,13 @@ class VOCAnnotationTransform(object):
     """
 
     def __init__(self, class_to_ind=None, keep_difficult=False):
-        self.class_to_ind = class_to_ind or dict(
-            zip(VOC_CLASSES, range(len(VOC_CLASSES))))
+        self.class_to_ind = class_to_ind or dict(zip(VOC_CLASSES, range(len(VOC_CLASSES))))
         self.keep_difficult = keep_difficult
 
     def __call__(self, target, width, height):
         """
         Arguments:
-            target (annotation) : the target annotation to be made usable
-                will be an ET.Element
+            target (annotation) : the target annotation to be made usable will be an ET.Element
         Returns:
             a list containing lists of bounding boxes  [bbox coords, class name]
         """
@@ -85,10 +79,8 @@ class VOCDetection(data.Dataset):
     Arguments:
         root (string): filepath to VOCdevkit folder.
         image_set (string): imageset to use (eg. 'train', 'val', 'test')
-        transform (callable, optional): transformation to perform on the
-            input image
-        target_transform (callable, optional): transformation to perform on the
-            target `annotation`
+        transform (callable, optional): transformation to perform on the input image
+        target_transform (callable, optional): transformation to perform on the target `annotation`
             (eg: take in caption string, return tensor of word indices)
         dataset_name (string, optional): which dataset to load
             (default: 'VOC2007')
@@ -102,7 +94,7 @@ class VOCDetection(data.Dataset):
         self.name = dataset_name
         self._annopath = osp.join('%s', 'Annotations', '%s.xml')
         self._imgpath = osp.join('%s', 'JPEGImages', '%s.jpg')
-        self.ids = list()
+        self.ids = list()  # ['000005','000007','000009', ....]
         for (year, name) in image_sets:
             rootpath = osp.join(self.root, 'VOC' + year)
             for line in open(osp.join(rootpath, 'ImageSets', 'Main', name + '.txt')):
@@ -126,13 +118,14 @@ class VOCDetection(data.Dataset):
         if self.target_transform is not None:
             target = self.target_transform(target, width, height)
 
+        # bgr
         if self.transform is not None:
             target = np.array(target)
             img, boxes, labels = self.transform(img, target[:, :4], target[:, 4])
             # to rgb
             img = img[:, :, (2, 1, 0)]
             # img = img.transpose(2, 0, 1)
-            target = np.hstack((boxes, np.expand_dims(labels, axis=1)))
+            target = np.hstack((boxes, labels[:, np.newaxis]))  # (n, 4),(n) -> (n, 5)
         return torch.from_numpy(img).permute(2, 0, 1), target, height, width
         # return torch.from_numpy(img), target, height, width
 
@@ -147,8 +140,7 @@ class VOCDetection(data.Dataset):
         Return:
             PIL img
         '''
-        img_id = self.ids[index]
-        return cv2.imread(self._imgpath % img_id, cv2.IMREAD_COLOR)
+        return cv2.imread(self._imgpath % self.ids[index], cv2.IMREAD_COLOR)
 
     def pull_anno(self, index):
         '''Returns the original annotation of image at index
@@ -162,10 +154,9 @@ class VOCDetection(data.Dataset):
             list:  [img_id, [(label, bbox coords),...]]
                 eg: ('001718', [('dog', (96, 13, 438, 332))])
         '''
-        img_id = self.ids[index]
-        anno = ET.parse(self._annopath % img_id).getroot()
+        anno = ET.parse(self._annopath % self.ids[index]).getroot()
         gt = self.target_transform(anno, 1, 1)
-        return img_id[1], gt
+        return self.ids[index][1], gt
 
     def pull_tensor(self, index):
         '''Returns the original image at an index in tensor form

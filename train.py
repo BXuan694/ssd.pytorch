@@ -3,7 +3,6 @@ from utils.augmentations import SSDAugmentation
 from layers.modules import MultiBoxLoss
 from ssd import build_ssd
 import os
-import sys
 import time
 import torch
 from torch.autograd import Variable
@@ -12,7 +11,6 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 import torch.nn.init as init
 import torch.utils.data as data
-import numpy as np
 import argparse
 
 
@@ -42,9 +40,8 @@ args = parser.parse_args()
 if torch.cuda.is_available():
     if args.cuda:
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    if not args.cuda:
-        print("WARNING: It looks like you have a CUDA device, but aren't " +
-              "using CUDA.\nRun with --cuda for optimal training speed.")
+    else:
+        print("WARNING: It looks like you have a CUDA device, but aren't using CUDA. Run with --cuda.")
         torch.set_default_tensor_type('torch.FloatTensor')
 else:
     torch.set_default_tensor_type('torch.FloatTensor')
@@ -52,21 +49,23 @@ else:
 if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
 
-
 def train():
     if args.dataset == 'COCO':
         if args.dataset_root == VOC_ROOT:
             if not os.path.exists(COCO_ROOT):
                 parser.error('Must specify dataset_root if specifying dataset')
-            print("WARNING: Using default COCO dataset_root because " + "--dataset_root was not specified.")
+            print("WARNING: Using default COCO dataset_root because --dataset_root was not specified.")
             args.dataset_root = COCO_ROOT
         cfg = coco
-        dataset = COCODetection(root=args.dataset_root, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'VOC':
-        #if args.dataset_root == COCO_ROOT:
-        #    parser.error('Must specify dataset if specifying dataset_root')
+        if args.dataset_root == COCO_ROOT:
+            if not os.path.exists(VOC_ROOT):
+                parser.error('Must specify dataset_root if specifying dataset')
+            print("WARNING: Using default VOC dataset_root because --dataset_root was not specified.")
+            parser.error('Must specify dataset if specifying dataset_root')
+            args.dataset_root == VOC_ROOT
         cfg = voc
-        dataset = VOCDetection(root=args.dataset_root, transform=SSDAugmentation(cfg['min_dim'], MEANS))
+    dataset = VOCDetection(root=args.dataset_root, transform=SSDAugmentation(cfg['min_dim'], MEANS))
 
     if args.visdom:
         import visdom
@@ -78,20 +77,14 @@ def train():
     if args.cuda:
         net = torch.nn.DataParallel(ssd_net)
         cudnn.benchmark = True
+        net = net.cuda()
 
     if args.resume:
         print('Resuming training, loading {}...'.format(args.resume))
         ssd_net.load_weights(args.resume)
     else:
-
-        vgg_weights = torch.load(args.save_folder + args.basenet)
         print('Loading base network...')
-        ssd_net.vgg.load_state_dict(vgg_weights)
-
-    if args.cuda:
-        net = net.cuda()
-
-    if not args.resume:
+        ssd_net.vgg.load_state_dict(torch.load(args.save_folder + args.basenet))
         print('Initializing weights...')
         # initialize newly added layers' weights with xavier method
         ssd_net.extras.apply(weights_init)
@@ -121,13 +114,11 @@ def train():
         iter_plot = create_vis_plot('Iteration', 'Loss', vis_title, vis_legend)
         epoch_plot = create_vis_plot('Epoch', 'Loss', vis_title, vis_legend)
 
-    data_loader = data.DataLoader(dataset, args.batch_size,  num_workers=args.num_workers,  shuffle=True, collate_fn=detection_collate,  pin_memory=True)
-    # create batch iterator
+    data_loader = data.DataLoader(dataset, args.batch_size, num_workers=args.num_workers, shuffle=True, collate_fn=detection_collate, pin_memory=True)
     batch_iterator = iter(data_loader)
     for iteration in range(args.start_iter, cfg['max_iter']):
         if args.visdom and iteration != 0 and (iteration % epoch_size == 0):
             update_vis_plot(epoch, loc_loss, conf_loss, epoch_plot, None, 'append', epoch_size)
-            # reset epoch loss counters
             loc_loss = 0
             conf_loss = 0
             epoch += 1
@@ -137,7 +128,6 @@ def train():
             adjust_learning_rate(optimizer, args.gamma, step_index)
 
         # load train data
-
         try:
             images, targets = next(batch_iterator)
         except StopIteration:
@@ -145,15 +135,14 @@ def train():
             images, targets = next(batch_iterator)
 
         if args.cuda:
-            images = Variable(images.cuda())
+            images = images.cuda()
             targets = [Variable(ann.cuda(), volatile=True) for ann in targets]
         else:
-            images = Variable(images)
             targets = [Variable(ann, volatile=True) for ann in targets]
         # forward
         t0 = time.time()
         out = net(images)
-        # backprop
+
         optimizer.zero_grad()
         loss_l, loss_c = criterion(out, targets)
         loss = loss_l + loss_c
@@ -172,59 +161,34 @@ def train():
 
         if iteration != 0 and iteration % 5000 == 0:
             print('Saving state, iter:', iteration)
-            torch.save(ssd_net.state_dict(), 'weights/ssd300_COCO_' + repr(iteration) + '.pth')
-    torch.save(ssd_net.state_dict(), args.save_folder + '' + args.dataset + '.pth')
+            torch.save(ssd_net.state_dict(), 'weights/ssd300_' + args.dataset + '_' + str(iteration) + '.pth')
+    torch.save(ssd_net.state_dict(), args.save_folder + args.dataset + '.pth')
 
 
 def adjust_learning_rate(optimizer, gamma, step):
-    """Sets the learning rate to the initial LR decayed by 10 at every
-        specified step
-    # Adapted from PyTorch Imagenet example:
-    # https://github.com/pytorch/examples/blob/master/imagenet/main.py
+    """Sets the learning rate to the initial LR decayed by 10 at every specified step
+    # Adapted from PyTorch Imagenet example: https://github.com/pytorch/examples/blob/master/imagenet/main.py
     """
     lr = args.lr * (gamma ** (step))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
 
-def xavier(param):
-    init.xavier_uniform_(param)
-
-
 def weights_init(m):
     if isinstance(m, nn.Conv2d):
-        xavier(m.weight.data)
+        init.xavier_uniform_(m.weight.data)
         m.bias.data.zero_()
 
 
 def create_vis_plot(_xlabel, _ylabel, _title, _legend):
-    return viz.line(
-        X=torch.zeros((1,)).cpu(),
-        Y=torch.zeros((1, 3)).cpu(),
-        opts=dict(
-            xlabel=_xlabel,
-            ylabel=_ylabel,
-            title=_title,
-            legend=_legend
-        )
-    )
+    return viz.line(X=torch.zeros((1,)).cpu(), Y=torch.zeros((1, 3)).cpu(), opts=dict(xlabel=_xlabel, ylabel=_ylabel, title=_title, legend=_legend))
 
 
 def update_vis_plot(iteration, loc, conf, window1, window2, update_type, epoch_size=1):
-    viz.line(
-        X=torch.ones((1, 3)).cpu() * iteration,
-        Y=torch.Tensor([loc, conf, loc + conf]).unsqueeze(0).cpu() / epoch_size,
-        win=window1,
-        update=update_type
-    )
+    viz.line(X=torch.ones((1, 3)).cpu() * iteration, Y=torch.Tensor([loc, conf, loc + conf]).unsqueeze(0).cpu() / epoch_size, win=window1, update=update_type)
     # initialize epoch plot on first iteration
     if iteration == 0:
-        viz.line(
-            X=torch.zeros((1, 3)).cpu(),
-            Y=torch.Tensor([loc, conf, loc + conf]).unsqueeze(0).cpu(),
-            win=window2,
-            update=True
-        )
+        viz.line(X=torch.zeros((1, 3)).cpu(),  Y=torch.Tensor([loc, conf, loc + conf]).unsqueeze(0).cpu(), win=window2, update=True)
 
 
 if __name__ == '__main__':

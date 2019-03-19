@@ -10,29 +10,24 @@ from ..box_utils import match, log_sum_exp
 class MultiBoxLoss(nn.Module):
     """SSD Weighted Loss Function
     Compute Targets:
-        1) Produce Confidence Target Indices by matching  ground truth boxes
-           with (default) 'priorboxes' that have jaccard index > threshold parameter
-           (default threshold: 0.5).
+        1) Produce Confidence Target Indices by matching ground truth boxes
+           with (default) 'priorboxes' that have jaccard index > threshold parameter.
         2) Produce localization target by 'encoding' variance into offsets of ground
            truth boxes and their matched  'priorboxes'.
         3) Hard negative mining to filter the excessive number of negative examples
            that comes with using a large number of default bounding boxes.
-           (default negative:positive ratio 3:1)
+           (default n:p=3:1)
     Objective Loss:
-        L(x,c,l,g) = (Lconf(x, c) + αLloc(x,l,g)) / N
-        Where, Lconf is the CrossEntropy Loss and Lloc is the SmoothL1 Loss
-        weighted by α which is set to 1 by cross val.
+        L(x,c,l,g) = (Lconf(x,c) + αLloc(x,l,g)) / N
+        Where, Lconf is the CSE Loss and Lloc is the SmoothL1 Loss weighted by α=1.
         Args:
             c: class confidences,
             l: predicted boxes,
             g: ground truth boxes
             N: number of matched default boxes
-        See: https://arxiv.org/pdf/1512.02325.pdf for more details.
     """
 
-    def __init__(self, num_classes, overlap_thresh, prior_for_matching,
-                 bkg_label, neg_mining, neg_pos, neg_overlap, encode_target,
-                 use_gpu=True):
+    def __init__(self, num_classes, overlap_thresh, prior_for_matching, bkg_label, neg_mining, neg_pos, neg_overlap, encode_target, use_gpu=True):
         super(MultiBoxLoss, self).__init__()
         self.use_gpu = use_gpu
         self.num_classes = num_classes
@@ -61,7 +56,6 @@ class MultiBoxLoss(nn.Module):
         num = loc_data.size(0)
         priors = priors[:loc_data.size(1), :]
         num_priors = (priors.size(0))
-        num_classes = self.num_classes
 
         # match priors (default boxes) and ground truth boxes
         loc_t = torch.Tensor(num, num_priors, 4)
@@ -79,7 +73,7 @@ class MultiBoxLoss(nn.Module):
         conf_t = Variable(conf_t, requires_grad=False)
 
         pos = conf_t > 0
-        num_pos = pos.sum(dim=1, keepdim=True)
+        # num_pos = pos.sum(dim=1, keepdim=True)
 
         # Localization Loss (Smooth L1)
         # Shape: [batch,num_priors,4]

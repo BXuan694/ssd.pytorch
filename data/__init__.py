@@ -16,8 +16,7 @@ def detection_collate(batch):
     Return:
         A tuple containing:
             1) (tensor) batch of images stacked on their 0 dim
-            2) (list of tensors) annotations for a given image are stacked on
-                                 0 dim
+            2) (list of tensors) annotations for a given image are stacked on 0 dim
     """
     targets = []
     imgs = []
